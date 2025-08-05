@@ -1,6 +1,8 @@
-// lib/login_screen.dart
+import 'package:app_laundry/home_screen.dart';
+import 'package:app_laundry/models/user_model.dart';
+// import 'package:app_laundry/screens/home_screen.dart';
 import 'package:flutter/material.dart';
-// import 'home_screen.dart'; // Impor halaman utama
+import 'package:app_laundry/app_routes.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -10,38 +12,51 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  bool _obscurePassword = true;
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  bool _nameError = false;
-  bool _emailError = false;
-  bool _passwordError = false;
-  String? _nameErrorText;
-  String? _emailErrorText;
-  String? _passwordErrorText;
+  bool _obscurePassword = true;
+
+  String? _nameError;
+  String? _emailError;
+  String? _passwordError;
 
   void _validateAndLogin() {
     setState(() {
-      _nameError = _nameController.text.isEmpty;
-      _emailError =
-          _emailController.text.isEmpty || !_emailController.text.contains('@');
-      _passwordError = _passwordController.text.isEmpty ||
-          _passwordController.text.length < 3;
-      _nameErrorText = _nameError ? 'Name is required' : null;
-      _emailErrorText = _emailError ? 'Valid email is required' : null;
-      _passwordErrorText = _passwordError ? 'Password min 3 karakter' : null;
+      _nameError = _nameController.text.isEmpty ? 'Name is required' : null;
+      _emailError = _emailController.text.isEmpty
+          ? 'E-mail is required'
+          : (!_emailController.text.contains('@') ? 'Invalid e-mail' : null);
+      _passwordError = _passwordController.text.isEmpty
+          ? 'Password is required'
+          : (_passwordController.text.length < 6
+              ? 'Password min 6 chars'
+              : null);
     });
-    if (!_nameError && !_emailError && !_passwordError) {
-      // TODO: Proses login
+
+    // Jika semua input valid
+    if (_nameError == null && _emailError == null && _passwordError == null) {
+      // 1. Buat objek User dari data yang diinput
+      final user = User(
+        fullName: _nameController.text,
+        email: _emailController.text,
+        password: _passwordController.text,
+      );
+
+      // 2. Kirim objek User ke HomeScreen
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => HomeScreen(user: user),
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     const Color primaryBlue = Color(0xFF2962FF);
-    const Color lightBlueBg = Color(0xFFF7F7F7);
 
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 139, 174, 240),
@@ -53,7 +68,7 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               const SizedBox(height: 8),
               const Text(
-                'Sign in',
+                'Sign In',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 28,
@@ -68,50 +83,23 @@ class _LoginScreenState extends State<LoginScreen> {
                 label: 'Name',
                 icon: Icons.person_outline,
                 controller: _nameController,
-                error: _nameError,
+                errorText: _nameError,
               ),
-              if (_nameErrorText != null)
-                Padding(
-                  padding: const EdgeInsets.only(left: 8, top: 4),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(_nameErrorText!,
-                        style: TextStyle(color: Colors.red, fontSize: 12)),
-                  ),
-                ),
               const SizedBox(height: 16),
               _buildTextField(
                 label: 'E-mail',
                 icon: Icons.email_outlined,
                 controller: _emailController,
-                error: _emailError,
+                errorText: _emailError,
               ),
-              if (_emailErrorText != null)
-                Padding(
-                  padding: const EdgeInsets.only(left: 8, top: 4),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(_emailErrorText!,
-                        style: TextStyle(color: Colors.red, fontSize: 12)),
-                  ),
-                ),
               const SizedBox(height: 16),
               _buildTextField(
                 label: 'Password',
                 icon: Icons.lock_outline,
                 isPassword: true,
                 controller: _passwordController,
-                error: _passwordError,
+                errorText: _passwordError,
               ),
-              if (_passwordErrorText != null)
-                Padding(
-                  padding: const EdgeInsets.only(left: 8, top: 4),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(_passwordErrorText!,
-                        style: TextStyle(color: Colors.red, fontSize: 12)),
-                  ),
-                ),
               const SizedBox(height: 32),
               SizedBox(
                 width: double.infinity,
@@ -122,9 +110,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30)),
-                    elevation: 0,
                   ),
-                  child: const Text('Log in',
+                  child: const Text('Sign In',
                       style: TextStyle(fontSize: 18, color: Colors.white)),
                 ),
               ),
@@ -136,11 +123,11 @@ class _LoginScreenState extends State<LoginScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text("Don't have an account?",
+                  Text("Don't have an account? ",
                       style: TextStyle(color: Colors.grey[700])),
                   GestureDetector(
                     onTap: () {
-                      Navigator.pushNamed(context, '/signup');
+                      Navigator.pushNamed(context, AppRoutes.signup);
                     },
                     child: const Text('Sign up',
                         style: TextStyle(
@@ -148,7 +135,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
             ],
           ),
         ),
@@ -160,45 +146,62 @@ class _LoginScreenState extends State<LoginScreen> {
     required String label,
     required IconData icon,
     bool isPassword = false,
-    TextEditingController? controller,
-    bool error = false,
+    required TextEditingController controller,
+    String? errorText,
   }) {
-    return TextField(
-      controller: controller,
-      obscureText: isPassword ? _obscurePassword : false,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, color: Colors.grey[600]),
-        suffixIcon: isPassword
-            ? IconButton(
-                icon: Icon(
-                  _obscurePassword
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
-                  color: Colors.grey,
-                ),
-                onPressed: () {
-                  setState(() {
-                    _obscurePassword = !_obscurePassword;
-                  });
-                },
-              )
-            : null,
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: BorderSide.none,
+    const Color primaryBlue = Color(0xFF2962FF);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: controller,
+          obscureText: isPassword ? _obscurePassword : false,
+          decoration: InputDecoration(
+            labelText: label,
+            prefixIcon: Icon(icon, color: Colors.grey[600]),
+            suffixIcon: isPassword
+                ? IconButton(
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                      color: Colors.grey,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  )
+                : null,
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(30),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(30),
+              borderSide: BorderSide(
+                  color: errorText != null ? Colors.red : Colors.white),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(30),
+              borderSide: BorderSide(
+                  color: errorText != null ? Colors.red : primaryBlue,
+                  width: 2),
+            ),
+          ),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: BorderSide(color: error ? Colors.red : Colors.white),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: BorderSide(color: error ? Colors.red : Color(0xFF2962FF)),
-        ),
-      ),
+        if (errorText != null)
+          Padding(
+            padding: const EdgeInsets.only(left: 16, top: 4),
+            child: Text(
+              errorText,
+              style: const TextStyle(color: Colors.red, fontSize: 13),
+            ),
+          ),
+      ],
     );
   }
 }

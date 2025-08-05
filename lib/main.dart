@@ -1,7 +1,8 @@
-import 'package:app_laundry/login_screen.dart';
-import 'package:app_laundry/register_screen.dart'; // Impor file register screen
+// lib/main.dart
+import 'package:app_laundry/providers/order_provider.dart';
 import 'package:flutter/material.dart';
-import 'splash_screen.dart'; // Impor file splash screen yang baru dibuat
+import 'package:app_laundry/app_routes.dart';
+import 'package:provider/provider.dart'; // Impor provider
 
 void main() {
   runApp(const MyApp());
@@ -12,19 +13,20 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Laundry Express',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        fontFamily: 'Poppins',
+    // Bungkus MaterialApp dengan ChangeNotifierProvider
+    return ChangeNotifierProvider(
+      create: (context) => OrderProvider(),
+      child: MaterialApp(
+        title: 'Laundry Express',
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
+          fontFamily: 'Poppins',
+          scaffoldBackgroundColor: const Color(0xFFE0F0FF),
+        ),
+        debugShowCheckedModeBanner: false,
+        initialRoute: AppRoutes.splash,
+        routes: AppRoutes.routes,
       ),
-      debugShowCheckedModeBanner: false,
-      initialRoute: '/',
-      routes: {
-        '/': (context) => const SplashScreen(),
-        '/login': (context) => LoginScreen(),
-        '/signup': (context) => RegisterScreen(),
-      },
     );
   }
 }
