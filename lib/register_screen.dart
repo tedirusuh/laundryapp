@@ -1,3 +1,5 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -13,13 +15,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _passwordController = TextEditingController();
 
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
   String? _nameError;
   String? _emailError;
   String? _passwordError;
 
-  void _validateAndRegister() {
+  void _validateAndRegister() async {
     setState(() {
+      _isLoading = true;
       _nameError = _nameController.text.isEmpty ? 'Name is required' : null;
       _emailError = _emailController.text.isEmpty
           ? 'E-mail is required'
@@ -31,9 +35,64 @@ class _RegisterScreenState extends State<RegisterScreen> {
               : null);
     });
 
-    if (_nameError == null && _emailError == null && _passwordError == null) {
-      // TODO: Proses register
-      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+    if (_nameError != null || _emailError != null || _passwordError != null) {
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+
+    try {
+      final credential =
+          await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+
+      if (credential.user != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(credential.user!.uid)
+            .set({
+          'fullName': _nameController.text.trim(),
+          'email': _emailController.text.trim(),
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Registrasi berhasil! Silakan login.')),
+          );
+          Navigator.pushNamedAndRemoveUntil(
+              context, '/login', (route) => false);
+        }
+      }
+    } on FirebaseAuthException catch (e) {
+      // INI AKAN MENCETAK ERROR ASLI DARI FIREBASE
+      print('FIREBASE AUTH ERROR: ${e.code} - ${e.message}');
+
+      String errorMessage = 'Terjadi kesalahan saat registrasi.';
+      if (e.code == 'weak-password') {
+        errorMessage = 'Password yang diberikan terlalu lemah.';
+      } else if (e.code == 'email-already-in-use') {
+        errorMessage = 'Akun sudah ada untuk email tersebut.';
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage)),
+      );
+    } catch (e) {
+      // INI AKAN MENCETAK ERROR LAINNYA
+      print('ERROR DETAIL LAINNYA: $e');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Terjadi kesalahan: ${e.toString()}')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -85,7 +144,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _validateAndRegister,
+                  onPressed: _isLoading ? null : _validateAndRegister,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2962FF),
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -93,8 +152,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         borderRadius: BorderRadius.circular(30)),
                     elevation: 0,
                   ),
-                  child: const Text('Register',
-                      style: TextStyle(fontSize: 18, color: Colors.white)),
+                  child: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text('Register',
+                          style: TextStyle(fontSize: 18, color: Colors.white)),
                 ),
               ),
               const SizedBox(height: 12),

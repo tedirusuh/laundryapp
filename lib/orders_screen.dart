@@ -1,17 +1,20 @@
-// lib/screens/orders_screen.dart
+// lib/orders_screen.dart
 import 'package:app_laundry/create_order_screen.dart';
+import 'package:app_laundry/laundry_detail_screen.dart';
 import 'package:app_laundry/order_detail_screen.dart';
-import 'package:app_laundry/providers/order_provider.dart'; // <-- Impor halaman detail
+import 'package:app_laundry/providers/order_provider.dart' as my_order;
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:provider/provider.dart'; // Provider masih digunakan untuk membuat pesanan
 
 class OrdersScreen extends StatelessWidget {
   const OrdersScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final orderProvider = Provider.of<OrderProvider>(context);
-    final activeOrders = orderProvider.orders;
+    // Mengambil data pengguna yang sedang login saat ini
+    final User? currentUser = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
       backgroundColor: const Color(0xFFE0F0FF),
@@ -54,25 +57,51 @@ class OrdersScreen extends StatelessWidget {
                 color: Colors.black87),
           ),
           const SizedBox(height: 12),
-          if (activeOrders.isEmpty)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(20.0),
-                child: Text('Belum ada pesanan aktif.',
-                    style: TextStyle(fontSize: 16, color: Colors.grey)),
-              ),
-            )
-          else
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: activeOrders.length,
-              itemBuilder: (ctx, i) => _buildOrderStatusCard(
-                // Kirim context dan seluruh objek order
-                context: context,
-                order: activeOrders[i],
-              ),
-            ),
+
+          // MENGGUNAKAN STREAMBUILDER UNTUK MENAMPILKAN DATA DARI FIRESTORE
+          StreamBuilder<QuerySnapshot>(
+            // Mengambil data dari koleksi 'orders' & memfilternya berdasarkan ID pengguna
+            stream: FirebaseFirestore.instance
+                .collection('orders')
+                .where('userId',
+                    isEqualTo: currentUser
+                        ?.uid) // Hanya tampilkan pesanan milik pengguna ini
+                .orderBy('createdAt',
+                    descending: true) // Urutkan dari yang terbaru
+                .snapshots(),
+            builder: (context, snapshot) {
+              // Tampilkan loading indicator saat data sedang diambil
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              // Tampilkan pesan jika tidak ada data pesanan
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: Text('Belum ada pesanan aktif.',
+                        style: TextStyle(fontSize: 16, color: Colors.grey)),
+                  ),
+                );
+              }
+
+              // Jika ada data, tampilkan dalam bentuk daftar
+              final orderDocs = snapshot.data!.docs;
+              return ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: orderDocs.length,
+                itemBuilder: (ctx, i) {
+                  // Mengubah setiap dokumen Firestore menjadi objek Order
+                  final order = my_order.Order.fromFirestore(orderDocs[i]);
+                  return _buildOrderStatusCard(
+                    context: context,
+                    order: order,
+                  );
+                },
+              );
+            },
+          ),
         ],
       ),
     );
@@ -126,10 +155,9 @@ class OrdersScreen extends StatelessWidget {
     );
   }
 
-  // Modifikasi widget ini agar bisa di-klik
   Widget _buildOrderStatusCard({
     required BuildContext context,
-    required Order order,
+    required my_order.Order order,
   }) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -137,13 +165,13 @@ class OrdersScreen extends StatelessWidget {
       shadowColor: Colors.blue.withOpacity(0.2),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
-        // <-- Dibungkus dengan InkWell
         onTap: () {
-          // Navigasi ke halaman detail
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => OrderDetailScreen(order: order),
+              // Jika class yang benar adalah LaundryDetailScreen, ubah menjadi:
+              // builder: (context) => LaundryDetailScreen(order: order),
             ),
           );
         },
@@ -173,9 +201,9 @@ class OrdersScreen extends StatelessWidget {
                     Text(
                       order.status,
                       style: TextStyle(
-                        color: order.status == 'Sudah selesai'
+                        color: order.status == 'Selesai'
                             ? Colors.green.shade600
-                            : Colors.red.shade600,
+                            : Colors.orange.shade600,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -183,7 +211,7 @@ class OrdersScreen extends StatelessWidget {
                 ),
               ),
               Text(
-                '#${order.id.substring(20)}',
+                '#${order.id.substring(0, 6)}',
                 style: const TextStyle(color: Colors.grey, fontSize: 12),
               ),
             ],

@@ -1,56 +1,92 @@
+// lib/login_screen.dart
 import 'package:app_laundry/home_screen.dart';
 import 'package:app_laundry/models/user_model.dart';
-// import 'package:app_laundry/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:app_laundry/app_routes.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
-
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
-  String? _nameError;
   String? _emailError;
   String? _passwordError;
 
-  void _validateAndLogin() {
+  void _validateAndLogin() async {
     setState(() {
-      _nameError = _nameController.text.isEmpty ? 'Name is required' : null;
+      _isLoading = true;
       _emailError = _emailController.text.isEmpty
           ? 'E-mail is required'
           : (!_emailController.text.contains('@') ? 'Invalid e-mail' : null);
-      _passwordError = _passwordController.text.isEmpty
-          ? 'Password is required'
-          : (_passwordController.text.length < 6
-              ? 'Password min 6 chars'
-              : null);
+      _passwordError =
+          _passwordController.text.isEmpty ? 'Password is required' : null;
     });
 
-    // Jika semua input valid
-    if (_nameError == null && _emailError == null && _passwordError == null) {
-      // 1. Buat objek User dari data yang diinput
-      final user = User(
-        fullName: _nameController.text,
-        email: _emailController.text,
-        password: _passwordController.text,
+    if (_emailError != null || _passwordError != null) {
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+
+    try {
+      final credential =
+          await fb_auth.FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
       );
 
-      // 2. Kirim objek User ke HomeScreen
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => HomeScreen(user: user),
-        ),
+      if (credential.user != null && mounted) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(credential.user!.uid)
+            .get();
+        final userData = userDoc.data();
+
+        final user = User(
+          fullName: userData?['fullName'] ?? 'Nama Pengguna',
+          email: userData?['email'] ?? credential.user!.email!,
+          password: '', // Password tidak perlu disimpan setelah login
+        );
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => HomeScreen(user: user),
+          ),
+        );
+      }
+    } on fb_auth.FirebaseAuthException catch (e) {
+      String errorMessage =
+          'Login gagal, periksa kembali email dan password Anda.';
+      if (e.code == 'user-not-found' ||
+          e.code == 'wrong-password' ||
+          e.code == 'invalid-credential') {
+        errorMessage = 'Email atau password yang Anda masukkan salah.';
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage)),
       );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Terjadi kesalahan: ${e.toString()}')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -80,13 +116,6 @@ class _LoginScreenState extends State<LoginScreen> {
               Image.asset('assets/login.png', height: 180),
               const SizedBox(height: 30),
               _buildTextField(
-                label: 'Name',
-                icon: Icons.person_outline,
-                controller: _nameController,
-                errorText: _nameError,
-              ),
-              const SizedBox(height: 16),
-              _buildTextField(
                 label: 'E-mail',
                 icon: Icons.email_outlined,
                 controller: _emailController,
@@ -104,15 +133,17 @@ class _LoginScreenState extends State<LoginScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _validateAndLogin,
+                  onPressed: _isLoading ? null : _validateAndLogin,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryBlue,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30)),
                   ),
-                  child: const Text('Sign In',
-                      style: TextStyle(fontSize: 18, color: Colors.white)),
+                  child: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text('Sign In',
+                          style: TextStyle(fontSize: 18, color: Colors.white)),
                 ),
               ),
               const SizedBox(height: 12),

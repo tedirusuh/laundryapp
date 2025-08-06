@@ -1,11 +1,12 @@
-// lib/screens/home_screen.dart
-
-import 'package:app_laundry/laundry_detail_screen.dart';
 import 'package:app_laundry/models/laundry_model.dart';
 import 'package:app_laundry/models/user_model.dart';
+import 'package:app_laundry/order_detail_screen.dart';
 import 'package:app_laundry/orders_screen.dart';
 import 'package:app_laundry/profile_screen.dart';
+import 'package:app_laundry/providers/order_provider.dart' as my_order;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class HomeScreen extends StatefulWidget {
   final User user;
@@ -19,50 +20,11 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   late final List<Widget> _widgetOptions;
 
-  // Daftar data laundry (bisa Anda tambahkan di sini)
-  final List<Laundry> laundryList = [
-    Laundry(
-      title: 'kiloan',
-      rating: 5,
-      price: 7000,
-      imagePath: 'assets/tmbangan2.jpg',
-    ),
-    Laundry(
-      title: 'sepatu',
-      rating: 4.5,
-      price: 30000,
-      distance: '1.1 km',
-      imagePath: 'assets/sepatu.jpg',
-    ),
-    Laundry(
-      title: 'setrika',
-      rating: 4.8,
-      price: 5000,
-      distance: '1.5 km',
-      imagePath: 'assets/setrika.jpg',
-    ),
-    Laundry(
-      title: 'laundry',
-      rating: 4.8,
-      price: 5000,
-      distance: '1.5 km',
-      imagePath: 'assets/2.jpg',
-    ),
-    Laundry(
-      title: 'satuan',
-      rating: 4.8,
-      price: 8000,
-      distance: '1.5 km',
-      imagePath: 'assets/Baju contoh.jpg',
-    ),
-  ];
-
   @override
   void initState() {
     super.initState();
     _widgetOptions = <Widget>[
-      HomeScreenContent(
-          userName: widget.user.fullName, laundryList: laundryList),
+      HomeScreenContent(userName: widget.user.fullName),
       const OrdersScreen(),
       ProfileScreen(user: widget.user),
     ];
@@ -95,44 +57,30 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// --- PERUBAHAN UTAMA DIMULAI DARI SINI ---
-
-// 1. Ubah HomeScreenContent menjadi StatefulWidget
 class HomeScreenContent extends StatefulWidget {
   final String userName;
-  final List<Laundry> laundryList;
-
-  const HomeScreenContent(
-      {super.key, required this.userName, required this.laundryList});
+  const HomeScreenContent({super.key, required this.userName});
 
   @override
   State<HomeScreenContent> createState() => _HomeScreenContentState();
 }
 
 class _HomeScreenContentState extends State<HomeScreenContent> {
-  // 2. Tambahkan state untuk logika pencarian
-  late List<Laundry> _filteredLaundryList;
   final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = "";
 
   @override
   void initState() {
     super.initState();
-    _filteredLaundryList = widget.laundryList;
-    _searchController.addListener(_filterLaundry);
-  }
-
-  void _filterLaundry() {
-    final query = _searchController.text.toLowerCase();
-    setState(() {
-      _filteredLaundryList = widget.laundryList.where((laundry) {
-        return laundry.title.toLowerCase().contains(query);
-      }).toList();
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text.toLowerCase();
+      });
     });
   }
 
   @override
   void dispose() {
-    _searchController.removeListener(_filterLaundry);
     _searchController.dispose();
     super.dispose();
   }
@@ -142,22 +90,51 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     return SafeArea(
       child: Column(
         children: [
-          // 3. Panggil AppBar dengan Lonceng
           _buildCustomAppBar(widget.userName),
-
-          // 4. Panggil Search Bar
           _buildSearchBar(),
-
+          _buildPaymentSection(),
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              // 5. Tampilkan daftar yang sudah difilter
-              itemCount: _filteredLaundryList.length,
-              itemBuilder: (context, index) {
-                final laundry = _filteredLaundryList[index];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 16.0),
-                  child: _buildLaundryCard(context, laundry),
+            child: StreamBuilder<QuerySnapshot>(
+              stream:
+                  FirebaseFirestore.instance.collection('services').snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return const Center(
+                      child: Text('Terjadi kesalahan memuat data.'));
+                }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Center(
+                      child: Text('Tidak ada layanan tersedia.'));
+                }
+
+                final laundryDocs = snapshot.data!.docs.where((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  final title = (data['title'] ?? '').toString().toLowerCase();
+                  return title.contains(_searchQuery);
+                }).toList();
+
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  itemCount: laundryDocs.length,
+                  itemBuilder: (context, index) {
+                    final doc = laundryDocs[index];
+                    final data = doc.data() as Map<String, dynamic>;
+
+                    final laundry = Laundry(
+                      id: doc.id,
+                      title: data['title'] ?? '',
+                      rating: (data['rating'] ?? 0.0).toDouble(),
+                      price: (data['price'] ?? 0).toInt(),
+                      imagePath: data['imagePath'] ?? 'assets/2.jpg',
+                    );
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16.0),
+                      child: _buildLaundryCard(context, laundry),
+                    );
+                  },
                 );
               },
             ),
@@ -167,7 +144,57 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     );
   }
 
-  // Widget AppBar dengan Lonceng Notifikasi
+  Widget _buildPaymentSection() {
+    return Consumer<my_order.OrderProvider>(
+      builder: (context, orderProvider, child) {
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          elevation: 4,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Total Tagihan Anda',
+                      style:
+                          TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Rp. ${orderProvider.totalUnpaidAmount.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                          fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    // TODO: Implement payment logic
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue[800],
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 12),
+                  ),
+                  child: const Text('Bayar',
+                      style: TextStyle(color: Colors.white)),
+                )
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildCustomAppBar(String name) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
@@ -197,9 +224,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             child: IconButton(
               icon:
                   const Icon(Icons.notifications_outlined, color: Colors.black),
-              onPressed: () {
-                // Aksi saat lonceng notifikasi di-klik
-              },
+              onPressed: () {},
             ),
           ),
         ],
@@ -207,7 +232,6 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     );
   }
 
-  // Widget Search Bar Baru
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
@@ -227,7 +251,6 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     );
   }
 
-  // Widget kartu laundry (tidak berubah)
   Widget _buildLaundryCard(BuildContext context, Laundry laundry) {
     return GestureDetector(
       onTap: () {
@@ -251,6 +274,14 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
               height: 120,
               width: double.infinity,
               fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  height: 120,
+                  color: Colors.grey[200],
+                  child: const Icon(Icons.image_not_supported,
+                      color: Colors.grey, size: 50),
+                );
+              },
             ),
             Padding(
               padding: const EdgeInsets.all(12),

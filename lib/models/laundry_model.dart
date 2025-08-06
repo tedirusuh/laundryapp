@@ -1,5 +1,6 @@
 // lib/models/laundry_model.dart
 class Laundry {
+  final String id;
   final String title;
   final double rating;
   final int price;
@@ -7,6 +8,7 @@ class Laundry {
   final String? distance;
 
   Laundry({
+    required this.id,
     required this.title,
     required this.rating,
     required this.price,

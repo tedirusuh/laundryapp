@@ -14,6 +14,7 @@ class AppRoutes {
         splash: (context) => const SplashScreen(),
         login: (context) => const LoginScreen(),
         signup: (context) => const RegisterScreen(),
+
         // Hapus laundryDetail dari daftar rute
       };
 }

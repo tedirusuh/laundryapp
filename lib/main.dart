@@ -2,9 +2,18 @@
 import 'package:app_laundry/providers/order_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:app_laundry/app_routes.dart';
-import 'package:provider/provider.dart'; // Impor provider
+import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart'; // Impor Firebase Core
+import 'firebase_options.dart'; // Impor file konfigurasi yang dibuat oleh FlutterFire
 
-void main() {
+void main() async {
+  // Ubah menjadi async
+  WidgetsFlutterBinding
+      .ensureInitialized(); // Wajib ada sebelum inisialisasi Firebase
+  await Firebase.initializeApp(
+    // Inisialisasi Firebase
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const MyApp());
 }
 

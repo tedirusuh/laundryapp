@@ -1,88 +1,117 @@
-// lib/screens/order_detail_screen.dart
-import 'package:app_laundry/providers/order_provider.dart';
+// lib/laundry_detail_screen.dart
+import 'package:app_laundry/models/laundry_model.dart';
 import 'package:flutter/material.dart';
+import 'package:app_laundry/utils/launch_whatsapp.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-class OrderDetailScreen extends StatelessWidget {
-  final Order order;
-  const OrderDetailScreen({super.key, required this.order});
+class LaundryDetailScreen extends StatelessWidget {
+  // PASTIKAN BAGIAN INI ADA: Kode ini membuat halaman siap menerima data 'laundry'
+  final Laundry laundry;
+  const LaundryDetailScreen({super.key, required this.laundry});
 
   @override
   Widget build(BuildContext context) {
+    const String laundryPhoneNumber =
+        '6281234567890'; // GANTI DENGAN NOMOR WA ANDA
+    const String laundryName = 'Laundry Express';
+
     return Scaffold(
+      backgroundColor: const Color(0xFFE0F0FF),
       appBar: AppBar(
-        title: Text('Detail Pesanan #${order.id.substring(20)}'),
-        backgroundColor: const Color(0xFFE0F0FF),
+        title: Text(laundry.title),
+        backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: Colors.black,
       ),
-      backgroundColor: const Color(0xFFE0F0FF),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Card(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          elevation: 4,
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize:
-                  MainAxisSize.min, // Membuat kartu seukuran kontennya
-              children: [
-                Text(
-                  order.title,
-                  style: const TextStyle(
-                      fontSize: 24, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                Row(
+        padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 16.0),
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Status: ', style: TextStyle(fontSize: 18)),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: (order.status == 'Sudah selesai'
-                                ? Colors.green
-                                : Colors.orange)
-                            .withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        order.status,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: order.status == 'Sudah selesai'
-                              ? Colors.green.shade800
-                              : Colors.orange.shade800,
-                        ),
+                    Card(
+                      clipBehavior: Clip.antiAlias,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15)),
+                      child: Image.asset(
+                        laundry.imagePath,
+                        height: 220,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            height: 220,
+                            color: Colors.grey[200],
+                            child: const Icon(Icons.image_not_supported,
+                                color: Colors.grey, size: 60),
+                          );
+                        },
                       ),
                     ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Dengan tenaga yang berpengalaman, kami siap melayani kebutuhan laundry Anda.',
+                      style: TextStyle(fontSize: 16, height: 1.5),
+                    ),
+                    const Divider(height: 32),
+                    const Text(
+                      'Daftar Harga',
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    _buildPriceItem('Cuci Kiloan', 'Rp. 7.000/kg'),
+                    _buildPriceItem('Setrika', 'Rp. 5.000/kg'),
+                    _buildPriceItem('Dry Cleaning Jas', 'Rp. 30.000/pcs'),
+                    _buildPriceItem('Karpet', 'Rp. 20.000/m²'),
+                    const SizedBox(height: 24),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Total Harga: Rp. ${order.price.toStringAsFixed(0)}',
-                  style: const TextStyle(fontSize: 18),
-                ),
-                const Divider(height: 40),
-                const Text(
-                  'Informasi Tambahan:',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                const ListTile(
-                  leading: Icon(Icons.info_outline),
-                  title:
-                      Text('Status pesanan akan diupdate oleh pihak laundry.'),
-                  subtitle: Text(
-                      'Anda akan menerima notifikasi jika status berubah.'),
-                ),
-              ],
+              ),
             ),
-          ),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  final String message =
+                      'Halo $laundryName, saya ingin memesan layanan ${laundry.title}.';
+                  launchWhatsApp(phone: laundryPhoneNumber, message: message);
+                },
+                icon: const FaIcon(FontAwesomeIcons.whatsapp,
+                    color: Colors.white),
+                label: const Text(
+                  'Pesan via WhatsApp',
+                  style: TextStyle(color: Colors.white, fontSize: 18),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF25D366),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
         ),
+      ),
+    );
+  }
+
+  static Widget _buildPriceItem(String service, String price) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(service, style: const TextStyle(fontSize: 16)),
+          Text(price,
+              style:
+                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+        ],
       ),
     );
   }
