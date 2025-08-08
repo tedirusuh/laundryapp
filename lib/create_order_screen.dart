@@ -1,11 +1,10 @@
-// lib/screens/create_order_screen.dart
+// lib/create_order_screen.dart
 
 import 'package:app_laundry/providers/order_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 class CreateOrderScreen extends StatefulWidget {
-  // Tambahkan variabel untuk menerima judul layanan
   final String serviceTitle;
   const CreateOrderScreen({super.key, required this.serviceTitle});
 
@@ -15,15 +14,17 @@ class CreateOrderScreen extends StatefulWidget {
 
 class _CreateOrderScreenState extends State<CreateOrderScreen> {
   final _weightController = TextEditingController();
-  double _totalPrice = 0.0;
+  final _nameController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _whatsappController = TextEditingController();
 
-  // Contoh harga yang berbeda untuk setiap layanan
-  late double _pricePerKg;
+  double _totalPrice = 0.0;
+  late double _pricePerItem;
+  String _selectedPaymentMethod = 'DANA'; // Default
 
   @override
   void initState() {
     super.initState();
-    // Atur harga berdasarkan judul layanan yang diterima
     _setPriceBasedOnService();
     _weightController.addListener(_calculatePrice);
   }
@@ -31,35 +32,38 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   void _setPriceBasedOnService() {
     switch (widget.serviceTitle.toLowerCase()) {
       case 'setrika':
-        _pricePerKg = 5000;
+        _pricePerItem = 5000;
         break;
       case 'satuan':
-        _pricePerKg = 8000;
+        _pricePerItem = 8000;
         break;
       case 'timbangan':
-        _pricePerKg = 7000;
+        _pricePerItem = 7000;
         break;
       case 'karpet':
-        _pricePerKg = 10000;
+        _pricePerItem = 10000;
         break;
       case 'sepatu':
-        _pricePerKg = 25000;
+        _pricePerItem = 25000;
         break;
       default:
-        _pricePerKg = 7000;
+        _pricePerItem = 7000;
     }
   }
 
   void _calculatePrice() {
-    final weight = double.tryParse(_weightController.text) ?? 0;
+    final quantity = double.tryParse(_weightController.text) ?? 0;
     setState(() {
-      _totalPrice = weight * _pricePerKg;
+      _totalPrice = quantity * _pricePerItem;
     });
   }
 
   @override
   void dispose() {
     _weightController.dispose();
+    _nameController.dispose();
+    _addressController.dispose();
+    _whatsappController.dispose();
     super.dispose();
   }
 
@@ -67,62 +71,119 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        // Tampilkan judul layanan yang diterima
         title: Text('Pesan Layanan ${widget.serviceTitle}'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextField(
-              controller: _weightController,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                labelText: 'Berat (kg) atau Jumlah (pcs)',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: _nameController,
+                decoration: InputDecoration(
+                  labelText: 'Nama Lengkap',
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Harga: Rp. $_pricePerKg / item',
-              style: const TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Total Harga: Rp. $_totalPrice',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const Spacer(),
-            ElevatedButton(
-              onPressed: () {
-                final quantity = double.tryParse(_weightController.text) ?? 0;
-                if (quantity > 0) {
-                  Provider.of<OrderProvider>(context, listen: false)
-                      .addOrder(widget.serviceTitle, quantity, _pricePerKg);
-                  Navigator.of(context).pop();
-                } else {
-                  // Tampilkan pesan jika input kosong
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text(
-                            'Harap masukkan jumlah atau berat terlebih dahulu.')),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue[800],
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _addressController,
+                decoration: InputDecoration(
+                  labelText: 'Alamat',
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
               ),
-              child: const Text('Tambah ke Pesanan Aktif',
-                  style: TextStyle(color: Colors.white)),
-            ),
-          ],
+              const SizedBox(height: 16),
+              TextField(
+                controller: _whatsappController,
+                keyboardType: TextInputType.phone,
+                decoration: InputDecoration(
+                  labelText: 'Nomor WhatsApp',
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _weightController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText: 'Berat (kg) atau Jumlah (pcs)',
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text('Harga: Rp. $_pricePerItem / item',
+                  style: const TextStyle(fontSize: 16)),
+              const SizedBox(height: 10),
+              Text('Total Harga: Rp. $_totalPrice',
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
+              DropdownButtonFormField<String>(
+                value: _selectedPaymentMethod,
+                decoration: InputDecoration(
+                  labelText: 'Metode Pembayaran',
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                items: [
+                  'DANA',
+                  'GoPay',
+                  'Transfer BRI',
+                  'Transfer Mandiri',
+                  'Transfer BNI'
+                ].map<DropdownMenuItem<String>>((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _selectedPaymentMethod = newValue!;
+                  });
+                },
+              ),
+              const SizedBox(height: 20), // Memberikan sedikit ruang
+              ElevatedButton(
+                onPressed: () {
+                  final quantity = double.tryParse(_weightController.text) ?? 0;
+                  if (quantity > 0) {
+                    Provider.of<OrderProvider>(context, listen: false).addOrder(
+                      widget.serviceTitle,
+                      quantity,
+                      _pricePerItem,
+                      _nameController.text,
+                      _addressController.text,
+                      _whatsappController.text,
+                      _selectedPaymentMethod,
+                    );
+                    Navigator.of(context).pop();
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text(
+                              'Harap masukkan jumlah atau berat terlebih dahulu.')),
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue[800],
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30)),
+                ),
+                child: const Text('Tambah ke Pesanan Aktif',
+                    style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
         ),
       ),
     );

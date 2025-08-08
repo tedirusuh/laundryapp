@@ -1,7 +1,10 @@
+// lib/home_screen.dart
+import 'package:app_laundry/laundry_detail_screen.dart';
 import 'package:app_laundry/models/laundry_model.dart';
 import 'package:app_laundry/models/user_model.dart';
 import 'package:app_laundry/order_detail_screen.dart';
 import 'package:app_laundry/orders_screen.dart';
+import 'package:app_laundry/payment_screen.dart';
 import 'package:app_laundry/profile_screen.dart';
 import 'package:app_laundry/providers/order_provider.dart' as my_order;
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -128,7 +131,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                       title: data['title'] ?? '',
                       rating: (data['rating'] ?? 0.0).toDouble(),
                       price: (data['price'] ?? 0).toInt(),
-                      imagePath: data['imagePath'] ?? 'assets/2.jpg',
+                      imagePath: _getAssetPath(data['title'] ?? ''),
                     );
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 16.0),
@@ -142,6 +145,25 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         ],
       ),
     );
+  }
+
+  String _getAssetPath(String title) {
+    switch (title.toLowerCase()) {
+      case "setrika":
+        return 'assets/setrika.jpg';
+      case "satuan":
+        return 'assets/Baju contoh.jpg';
+      case "timbangan":
+        return 'assets/timbang.jpg';
+      case "karpet":
+        return 'assets/Karpet.jpg';
+      case "sepatu":
+        return 'assets/sepatu.jpg';
+      case "setrika":
+        return 'assets/setrika.jpg';
+      default:
+        return 'assets/setrika.jpg';
+    }
   }
 
   Widget _buildPaymentSection() {
@@ -175,7 +197,13 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    // TODO: Implement payment logic
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => PaymentScreen(
+                            totalAmount: orderProvider.totalUnpaidAmount),
+                      ),
+                    );
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue[800],
@@ -201,18 +229,20 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Column(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(children: [
-                Text('Home',
+                const Text('Home',
                     style:
                         TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                Icon(Icons.keyboard_arrow_down)
+                const Icon(Icons.keyboard_arrow_down)
               ]),
-              SizedBox(height: 4),
-              Text('Block no.23,Saigaon,0043',
-                  style: TextStyle(color: Colors.black54)),
+              const SizedBox(height: 4),
+              Text(
+                'Selamat datang, ${name}!',
+                style: const TextStyle(color: Colors.black54),
+              ),
             ],
           ),
           Container(

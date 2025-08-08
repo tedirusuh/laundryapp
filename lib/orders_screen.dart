@@ -6,15 +6,27 @@ import 'package:app_laundry/providers/order_provider.dart' as my_order;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; // Provider masih digunakan untuk membuat pesanan
+import 'package:provider/provider.dart';
 
 class OrdersScreen extends StatelessWidget {
   const OrdersScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Mengambil data pengguna yang sedang login saat ini
     final User? currentUser = FirebaseAuth.instance.currentUser;
+
+    if (currentUser == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20.0),
+          child: Text(
+            'Silakan login untuk melihat pesanan Anda.',
+            style: TextStyle(fontSize: 16, color: Colors.grey),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFE0F0FF),
@@ -25,84 +37,77 @@ class OrdersScreen extends StatelessWidget {
         foregroundColor: Colors.black,
         automaticallyImplyLeading: false,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          GridView.count(
-            crossAxisCount: 4,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            children: [
-              _buildServiceCategory(context, 'Setrika', 'assets/setrika.png',
-                  size: 45),
-              _buildServiceCategory(context, 'Satuan', 'assets/satuan.png',
-                  size: 60),
-              _buildServiceCategory(
-                  context, 'Timbangan', 'assets/timbangan.png',
-                  size: 55),
-              _buildServiceCategory(context, 'Karpet', 'assets/karpet.png',
-                  size: 45),
-              _buildServiceCategory(context, 'Sepatu', 'assets/sepatu.png',
-                  size: 45),
-            ],
-          ),
-          const SizedBox(height: 30),
-          const Text(
-            'Pesanan Aktif',
-            style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87),
-          ),
-          const SizedBox(height: 12),
-
-          // MENGGUNAKAN STREAMBUILDER UNTUK MENAMPILKAN DATA DARI FIRESTORE
-          StreamBuilder<QuerySnapshot>(
-            // Mengambil data dari koleksi 'orders' & memfilternya berdasarkan ID pengguna
-            stream: FirebaseFirestore.instance
-                .collection('orders')
-                .where('userId',
-                    isEqualTo: currentUser
-                        ?.uid) // Hanya tampilkan pesanan milik pengguna ini
-                .orderBy('createdAt',
-                    descending: true) // Urutkan dari yang terbaru
-                .snapshots(),
-            builder: (context, snapshot) {
-              // Tampilkan loading indicator saat data sedang diambil
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              // Tampilkan pesan jika tidak ada data pesanan
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(20.0),
-                    child: Text('Belum ada pesanan aktif.',
-                        style: TextStyle(fontSize: 16, color: Colors.grey)),
-                  ),
-                );
-              }
-
-              // Jika ada data, tampilkan dalam bentuk daftar
-              final orderDocs = snapshot.data!.docs;
-              return ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: orderDocs.length,
-                itemBuilder: (ctx, i) {
-                  // Mengubah setiap dokumen Firestore menjadi objek Order
-                  final order = my_order.Order.fromFirestore(orderDocs[i]);
-                  return _buildOrderStatusCard(
-                    context: context,
-                    order: order,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(15.0),
+        child: Column(
+          children: [
+            GridView.count(
+              crossAxisCount: 4,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              children: [
+                _buildServiceCategory(context, 'Setrika', 'assets/setrika.png',
+                    size: 25),
+                _buildServiceCategory(
+                    context, 'Satuan', 'assets/baju-removebg-preview.png',
+                    size: 25),
+                _buildServiceCategory(context, 'Timbangan',
+                    'assets/Timbangan-removebg-preview (1).png',
+                    size: 20),
+                _buildServiceCategory(context, 'Karpet', 'assets/karpet.png',
+                    size: 25),
+                _buildServiceCategory(context, 'Sepatu', 'assets/sepatu.png',
+                    size: 25),
+              ],
+            ),
+            const SizedBox(height: 30),
+            const Text(
+              'Pesanan Aktif',
+              style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87),
+            ),
+            const SizedBox(height: 12),
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('orders')
+                  .where('userId', isEqualTo: currentUser.uid)
+                  .orderBy('createdAt', descending: true)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(20.0),
+                      child: Text('Belum ada pesanan aktif.',
+                          style: TextStyle(fontSize: 16, color: Colors.grey)),
+                    ),
                   );
-                },
-              );
-            },
-          ),
-        ],
+                }
+
+                final orderDocs = snapshot.data!.docs;
+                return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: orderDocs.length,
+                  itemBuilder: (ctx, i) {
+                    final order = my_order.Order.fromFirestore(orderDocs[i]);
+                    return _buildOrderStatusCard(
+                      context: context,
+                      order: order,
+                    );
+                  },
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -170,8 +175,6 @@ class OrdersScreen extends StatelessWidget {
             context,
             MaterialPageRoute(
               builder: (context) => OrderDetailScreen(order: order),
-              // Jika class yang benar adalah LaundryDetailScreen, ubah menjadi:
-              // builder: (context) => LaundryDetailScreen(order: order),
             ),
           );
         },

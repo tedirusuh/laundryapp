@@ -9,6 +9,10 @@ class Order {
   final String status;
   final double price;
   final Timestamp createdAt;
+  final String? customerName;
+  final String? customerAddress;
+  final String? customerWhatsapp;
+  final String? paymentMethod;
 
   Order({
     required this.id,
@@ -16,6 +20,10 @@ class Order {
     required this.status,
     required this.price,
     required this.createdAt,
+    this.customerName,
+    this.customerAddress,
+    this.customerWhatsapp,
+    this.paymentMethod,
   });
 
   factory Order.fromFirestore(DocumentSnapshot doc) {
@@ -26,6 +34,10 @@ class Order {
       status: data['status'] ?? 'Status Tidak Diketahui',
       price: (data['price'] ?? 0.0).toDouble(),
       createdAt: data['createdAt'] ?? Timestamp.now(),
+      customerName: data['customerName'] ?? '',
+      customerAddress: data['customerAddress'] ?? '',
+      customerWhatsapp: data['customerWhatsapp'] ?? '',
+      paymentMethod: data['paymentMethod'] ?? '',
     );
   }
 }
@@ -60,30 +72,33 @@ class OrderProvider with ChangeNotifier {
     });
   }
 
-  // FUNGSI BARU: Untuk mengubah status semua pesanan menjadi 'Selesai'
   Future<void> markAllOrdersAsPaid() async {
     final User? currentUser = _auth.currentUser;
     if (currentUser == null) return;
 
-    // 1. Ambil semua dokumen pesanan yang belum selesai
     final querySnapshot = await _firestore
         .collection('orders')
         .where('userId', isEqualTo: currentUser.uid)
         .where('status', isNotEqualTo: 'Selesai')
         .get();
 
-    // 2. Gunakan batch write untuk efisiensi
     final batch = _firestore.batch();
     for (var doc in querySnapshot.docs) {
       batch.update(doc.reference, {'status': 'Selesai'});
     }
 
-    // 3. Jalankan semua proses update sekaligus
     await batch.commit();
   }
 
   Future<void> addOrder(
-      String title, double quantity, double pricePerItem) async {
+    String title,
+    double quantity,
+    double pricePerItem,
+    String customerName,
+    String customerAddress,
+    String customerWhatsapp,
+    String paymentMethod,
+  ) async {
     final User? currentUser = _auth.currentUser;
     if (currentUser == null) return;
 
@@ -108,6 +123,10 @@ class OrderProvider with ChangeNotifier {
       'status': initialStatus,
       'price': totalPrice,
       'createdAt': Timestamp.now(),
+      'customerName': customerName,
+      'customerAddress': customerAddress,
+      'customerWhatsapp': customerWhatsapp,
+      'paymentMethod': paymentMethod,
     });
   }
 }

@@ -41,6 +41,8 @@ dependencies:
   firebase_core: ^4.0.0
   firebase_auth: ^6.0.0
   cloud_firestore: ^6.0.0
+  firebase_storage: 13.0.0
+  http: ^1.5.0
   
 
 dev_dependencies:
@@ -70,7 +72,13 @@ flutter:
     - assets/
     - assets/sepatu.jpg
     - assets/Baju contoh.jpg
-    
+    - assets/baju-removebg-preview.png
+    - assets/Timbangan-removebg-preview (1).png
+    - assets/setrika.jpg
+    - assets/timbang.jpg
+    - assets/Karpet.jpg
+  
+
 
   #
 

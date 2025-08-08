@@ -2,6 +2,7 @@
 import 'package:app_laundry/providers/order_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class PaymentScreen extends StatefulWidget {
   final double totalAmount;
@@ -15,39 +16,56 @@ class PaymentScreen extends StatefulWidget {
 class _PaymentScreenState extends State<PaymentScreen> {
   bool _isLoading = false;
 
-  // Fungsi untuk memproses pembayaran (simulasi)
   Future<void> _processPayment(String methodName) async {
+    if (_isLoading) return;
+
     setState(() {
       _isLoading = true;
     });
 
-    // Tampilkan pesan metode apa yang dipilih
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Memproses pembayaran dengan $methodName...")),
     );
 
-    // Simulasi waktu proses pembayaran (misalnya 2 detik)
     await Future.delayed(const Duration(seconds: 2));
 
-    // Panggil fungsi untuk mengubah status semua pesanan menjadi 'Selesai'
-    // 'listen: false' karena kita ada di dalam sebuah fungsi
-    await Provider.of<OrderProvider>(context, listen: false)
-        .markAllOrdersAsPaid();
+    if (methodName == 'DANA' || methodName == 'GoPay') {
+      final Uri paymentUrl = Uri.parse(
+          'https://example.com/api/payment/$methodName?amount=${widget.totalAmount}');
 
-    setState(() {
-      _isLoading = false;
-    });
+      try {
+        if (await canLaunchUrl(paymentUrl)) {
+          await launchUrl(paymentUrl, mode: LaunchMode.externalApplication);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not launch $methodName app.')),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Terjadi kesalahan: ${e.toString()}')),
+        );
+      }
+    } else {
+      await Provider.of<OrderProvider>(context, listen: false)
+          .markAllOrdersAsPaid();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                "Pembayaran via $methodName Berhasil! Semua tagihan lunas."),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.of(context).pop();
+      }
+    }
 
     if (mounted) {
-      // Tampilkan pesan sukses
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Pembayaran Berhasil! Semua tagihan lunas."),
-          backgroundColor: Colors.green,
-        ),
-      );
-      // Kembali ke halaman utama
-      Navigator.of(context).pop();
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -97,21 +115,32 @@ class _PaymentScreenState extends State<PaymentScreen> {
             const SizedBox(height: 16),
             _buildPaymentMethodButton(
               title: 'DANA',
-              icon: Icons
-                  .account_balance_wallet, // Ganti dengan logo DANA jika ada
+              icon: Icons.account_balance_wallet,
               onPressed: () => _processPayment('DANA'),
             ),
             const SizedBox(height: 12),
             _buildPaymentMethodButton(
               title: 'GoPay',
-              icon: Icons.wallet_giftcard, // Ganti dengan logo GoPay jika ada
+              icon: Icons.wallet_giftcard,
               onPressed: () => _processPayment('GoPay'),
             ),
             const SizedBox(height: 12),
             _buildPaymentMethodButton(
-              title: 'Transfer Bank',
+              title: 'Transfer BRI',
               icon: Icons.food_bank,
-              onPressed: () => _processPayment('Transfer Bank'),
+              onPressed: () => _processPayment('Transfer BRI'),
+            ),
+            const SizedBox(height: 12),
+            _buildPaymentMethodButton(
+              title: 'Transfer Mandiri',
+              icon: Icons.food_bank,
+              onPressed: () => _processPayment('Transfer Mandiri'),
+            ),
+            const SizedBox(height: 12),
+            _buildPaymentMethodButton(
+              title: 'Transfer BNI',
+              icon: Icons.food_bank,
+              onPressed: () => _processPayment('Transfer BNI'),
             ),
             if (_isLoading)
               const Padding(
