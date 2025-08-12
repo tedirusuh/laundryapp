@@ -1,132 +1,111 @@
 // lib/providers/order_provider.dart
-import 'package:flutter/material.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
+// --- Bagian Class Order tidak ada perubahan ---
 class Order {
   final String id;
   final String title;
   final String status;
   final double price;
+  final double weight;
   final Timestamp createdAt;
-  final String? customerName;
-  final String? customerAddress;
-  final String? customerWhatsapp;
-  final String? paymentMethod;
+  final String customerName;
+  final String customerAddress;
+  final String customerWhatsapp;
+  final String paymentMethod;
+  final String notes;
 
   Order({
     required this.id,
     required this.title,
     required this.status,
     required this.price,
+    required this.weight,
     required this.createdAt,
-    this.customerName,
-    this.customerAddress,
-    this.customerWhatsapp,
-    this.paymentMethod,
+    required this.customerName,
+    required this.customerAddress,
+    required this.customerWhatsapp,
+    required this.paymentMethod,
+    required this.notes,
   });
 
   factory Order.fromFirestore(DocumentSnapshot doc) {
-    Map data = doc.data() as Map<String, dynamic>;
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>? ?? {};
     return Order(
       id: doc.id,
-      title: data['title'] ?? '',
-      status: data['status'] ?? 'Status Tidak Diketahui',
-      price: (data['price'] ?? 0.0).toDouble(),
-      createdAt: data['createdAt'] ?? Timestamp.now(),
-      customerName: data['customerName'] ?? '',
-      customerAddress: data['customerAddress'] ?? '',
-      customerWhatsapp: data['customerWhatsapp'] ?? '',
-      paymentMethod: data['paymentMethod'] ?? '',
+      title: data['title'] as String? ?? 'Tanpa Judul',
+      status: data['status'] as String? ?? 'Status Tidak Diketahui',
+      price: (data['price'] as num?)?.toDouble() ?? 0.0,
+      weight: (data['weight'] as num?)?.toDouble() ?? 0.0,
+      createdAt: data['createdAt'] as Timestamp? ?? Timestamp.now(),
+      customerName: data['customerName'] as String? ?? 'Tanpa Nama',
+      customerAddress: data['customerAddress'] as String? ?? 'Tanpa Alamat',
+      customerWhatsapp: data['customerWhatsapp'] as String? ?? '-',
+      paymentMethod: data['paymentMethod'] as String? ?? 'Cash',
+      notes: data['notes'] as String? ?? '',
     );
   }
 }
 
+// --- Perubahan utama ada di kelas OrderProvider ---
 class OrderProvider with ChangeNotifier {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-
   double _totalUnpaidAmount = 0.0;
   double get totalUnpaidAmount => _totalUnpaidAmount;
 
   OrderProvider() {
-    _calculateTotalUnpaid();
+    FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user != null) {
+        _calculateTotalUnpaidAmount();
+      } else {
+        _totalUnpaidAmount = 0.0;
+        notifyListeners();
+      }
+    });
   }
 
-  void _calculateTotalUnpaid() {
-    final User? currentUser = _auth.currentUser;
-    if (currentUser == null) return;
+  // FUNGSI INI DIPERBAIKI
+  void _calculateTotalUnpaidAmount() {
+    final User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
-    _firestore
+    // Dengarkan perubahan pada pesanan yang statusnya "Selesai"
+    FirebaseFirestore.instance
         .collection('orders')
-        .where('userId', isEqualTo: currentUser.uid)
-        .where('status', isNotEqualTo: 'Selesai')
+        .where('userId', isEqualTo: user.uid)
+        // HANYA HITUNG TAGIHAN JIKA STATUSNYA "SELESAI"
+        .where('status', isEqualTo: 'Selesai')
         .snapshots()
         .listen((snapshot) {
       double total = 0.0;
       for (var doc in snapshot.docs) {
-        total += (doc.data()['price'] ?? 0.0).toDouble();
+        total += (doc.data()['price'] as num?)?.toDouble() ?? 0.0;
       }
       _totalUnpaidAmount = total;
       notifyListeners();
     });
   }
 
-  Future<void> markAllOrdersAsPaid() async {
-    final User? currentUser = _auth.currentUser;
-    if (currentUser == null) return;
+  // FUNGSI INI JUGA DIPERBAIKI
+  // Setelah bayar, ubah status pesanan "Selesai" menjadi "Lunas"
+  Future<void> markFinishedOrdersAsPaid() async {
+    final User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
-    final querySnapshot = await _firestore
+    final querySnapshot = await FirebaseFirestore.instance
         .collection('orders')
-        .where('userId', isEqualTo: currentUser.uid)
-        .where('status', isNotEqualTo: 'Selesai')
+        .where('userId', isEqualTo: user.uid)
+        .where('status', isEqualTo: 'Selesai') // Cari semua yang "Selesai"
         .get();
 
-    final batch = _firestore.batch();
+    final batch = FirebaseFirestore.instance.batch();
     for (var doc in querySnapshot.docs) {
-      batch.update(doc.reference, {'status': 'Selesai'});
+      // Ubah statusnya menjadi "Lunas"
+      batch.update(doc.reference, {'status': 'Lunas'});
     }
-
     await batch.commit();
-  }
-
-  Future<void> addOrder(
-    String title,
-    double quantity,
-    double pricePerItem,
-    String customerName,
-    String customerAddress,
-    String customerWhatsapp,
-    String paymentMethod,
-  ) async {
-    final User? currentUser = _auth.currentUser;
-    if (currentUser == null) return;
-
-    final totalPrice = quantity * pricePerItem;
-    String initialStatus;
-
-    switch (title.toLowerCase()) {
-      case 'setrika':
-        initialStatus = 'Belum Disetrika';
-        break;
-      case 'sepatu':
-        initialStatus = 'Proses Pembersihan';
-        break;
-      default:
-        initialStatus = 'Masih Dicuci';
-    }
-
-    await _firestore.collection('orders').add({
-      'userId': currentUser.uid,
-      'title':
-          '$title (${quantity.toStringAsFixed(0)} ${title == 'Timbangan' ? 'kg' : 'pcs'})',
-      'status': initialStatus,
-      'price': totalPrice,
-      'createdAt': Timestamp.now(),
-      'customerName': customerName,
-      'customerAddress': customerAddress,
-      'customerWhatsapp': customerWhatsapp,
-      'paymentMethod': paymentMethod,
-    });
+    // Total tagihan akan otomatis terhitung ulang menjadi 0 karena listener di atas
   }
 }

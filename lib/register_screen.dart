@@ -10,7 +10,7 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _fullNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
@@ -21,10 +21,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _emailError;
   String? _passwordError;
 
-  void _validateAndRegister() async {
+  void _registerUser() async {
     setState(() {
       _isLoading = true;
-      _nameError = _nameController.text.isEmpty ? 'Name is required' : null;
+      _nameError = _fullNameController.text.isEmpty ? 'Name is required' : null;
       _emailError = _emailController.text.isEmpty
           ? 'E-mail is required'
           : (!_emailController.text.contains('@') ? 'Invalid e-mail' : null);
@@ -43,34 +43,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     try {
-      final credential =
-          await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
+      // 1. Buat pengguna di Auth
+      final UserCredential userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+              email: _emailController.text.trim(),
+              password: _passwordController.text.trim());
 
-      if (credential.user != null) {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(credential.user!.uid)
-            .set({
-          'fullName': _nameController.text.trim(),
-          'email': _emailController.text.trim(),
+      final User? user = userCredential.user;
+
+      // 2. JIKA SUKSES, LANGSUNG SIMPAN PROFIL KE FIRESTORE
+      if (user != null) {
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'fullName': _fullNameController.text.trim(),
+          'email': user.email,
+          'photoUrl': '', // Kosong saat pertama kali
+          'createdAt': Timestamp.now(),
+          'role': 'customer', // Set role default
         });
 
+        // 3. Navigasi ke home
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Registrasi berhasil! Silakan login.')),
-          );
-          Navigator.pushNamedAndRemoveUntil(
-              context, '/login', (route) => false);
+          Navigator.pushReplacementNamed(context, '/home');
         }
       }
     } on FirebaseAuthException catch (e) {
-      // INI AKAN MENCETAK ERROR ASLI DARI FIREBASE
-      print('FIREBASE AUTH ERROR: ${e.code} - ${e.message}');
-
+      // Tangani error
       String errorMessage = 'Terjadi kesalahan saat registrasi.';
       if (e.code == 'weak-password') {
         errorMessage = 'Password yang diberikan terlalu lemah.';
@@ -81,9 +78,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         SnackBar(content: Text(errorMessage)),
       );
     } catch (e) {
-      // INI AKAN MENCETAK ERROR LAINNYA
-      print('ERROR DETAIL LAINNYA: $e');
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Terjadi kesalahan: ${e.toString()}')),
       );
@@ -122,7 +116,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               _buildTextField(
                 label: 'Name',
                 icon: Icons.person_outline,
-                controller: _nameController,
+                controller: _fullNameController,
                 errorText: _nameError,
               ),
               const SizedBox(height: 16),
@@ -144,7 +138,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _isLoading ? null : _validateAndRegister,
+                  onPressed: _isLoading ? null : _registerUser,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2962FF),
                     padding: const EdgeInsets.symmetric(vertical: 16),

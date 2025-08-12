@@ -1,12 +1,9 @@
-// lib/orders_screen.dart
 import 'package:app_laundry/create_order_screen.dart';
-import 'package:app_laundry/laundry_detail_screen.dart';
 import 'package:app_laundry/order_detail_screen.dart';
 import 'package:app_laundry/providers/order_provider.dart' as my_order;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 class OrdersScreen extends StatelessWidget {
   const OrdersScreen({super.key});
@@ -40,6 +37,7 @@ class OrdersScreen extends StatelessWidget {
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(15.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start, // Rata kiri untuk judul
           children: [
             GridView.count(
               crossAxisCount: 4,
@@ -63,23 +61,35 @@ class OrdersScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 30),
-            const Text(
-              'Pesanan Aktif',
-              style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87),
+            const Padding(
+              padding: EdgeInsets.only(left: 4.0), // Beri sedikit padding
+              child: Text(
+                'Pesanan Aktif',
+                style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87),
+              ),
             ),
             const SizedBox(height: 12),
             StreamBuilder<QuerySnapshot>(
+              // =======================================================
+              // FILTER HANYA UNTUK PESANAN AKTIF
+              // =======================================================
               stream: FirebaseFirestore.instance
                   .collection('orders')
                   .where('userId', isEqualTo: currentUser.uid)
+                  .where('status',
+                      whereIn: ['Menunggu Penjemputan', 'Sedang Dikerjakan'])
                   .orderBy('createdAt', descending: true)
                   .snapshots(),
+              // =======================================================
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
                 }
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                   return const Center(
@@ -98,6 +108,7 @@ class OrdersScreen extends StatelessWidget {
                   itemCount: orderDocs.length,
                   itemBuilder: (ctx, i) {
                     final order = my_order.Order.fromFirestore(orderDocs[i]);
+                    // Gunakan widget kartu pesanan Anda yang sudah diperbaiki
                     return _buildOrderStatusCard(
                       context: context,
                       order: order,
@@ -160,6 +171,9 @@ class OrdersScreen extends StatelessWidget {
     );
   }
 
+  // =======================================================
+  // KARTU PESANAN DENGAN NAMA PELANGGAN
+  // =======================================================
   Widget _buildOrderStatusCard({
     required BuildContext context,
     required my_order.Order order,
@@ -193,20 +207,22 @@ class OrdersScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // --- NAMA PELANGGAN TAMPIL DI SINI ---
                     Text(
-                      order.title,
+                      order.customerName, // Tampilkan nama pelanggan
                       style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: Colors.black),
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
+                    // Jenis layanan (dihapus karena sudah ada di nama)
+                    // Text(order.title, ...),
                     Text(
-                      order.status,
+                      order.status, // Tampilkan status
                       style: TextStyle(
-                        color: order.status == 'Selesai'
-                            ? Colors.green.shade600
-                            : Colors.orange.shade600,
+                        color: Colors.orange.shade600, // Warna status aktif
                         fontWeight: FontWeight.w600,
                       ),
                     ),
