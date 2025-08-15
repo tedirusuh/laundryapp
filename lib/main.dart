@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:app_laundry/app_routes.dart';
-import 'package:app_laundry/provides/theme_provider.dart'; // Path diperbaiki
+import 'package:app_laundry/providers/theme_provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:app_laundry/screens/login_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

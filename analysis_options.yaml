@@ -11,6 +11,7 @@ analyzer:
   errors:
     unused_import: ignore
     depend_on_referenced_packages: ignore
+    unused_element: ignore
 include: package:flutter_lints/flutter.yaml
 
 linter:

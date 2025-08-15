@@ -1,31 +1,41 @@
-// 'cloud_firestore' diimpor karena kita menggunakan tipe data 'Timestamp'
-// untuk data contoh (static data) di file lain. Ini mencegah error.
-
+// lib/models/order_model.dart
 class Order {
-  // Properti atau field yang dimiliki oleh setiap pesanan
-  final String id;
+  final int id;
   final String title;
   final String customerName;
   final String status;
   final double price;
-  final String customerAddress;
-  final String customerWhatsapp;
-  final String paymentMethod;
-  final String notes;
   final double weight;
+  final String? customerAddress;
+  final String? customerWhatsapp;
+  final String? paymentMethod;
+  final String? notes;
 
-  // Constructor: Ini adalah fungsi yang dipanggil saat kita membuat objek Order baru.
-  // 'required' berarti setiap properti ini wajib diisi.
   Order({
     required this.id,
     required this.title,
     required this.customerName,
     required this.status,
     required this.price,
-    required this.customerAddress,
-    required this.customerWhatsapp,
-    required this.paymentMethod,
-    required this.notes,
     required this.weight,
+    this.customerAddress,
+    this.customerWhatsapp,
+    this.paymentMethod,
+    this.notes,
   });
+
+  factory Order.fromJson(Map<String, dynamic> json) {
+    return Order(
+      id: int.parse(json['id']),
+      title: json['title'],
+      customerName: json['customer_name'],
+      status: json['status'],
+      price: double.parse(json['price']),
+      weight: double.parse(json['weight']),
+      customerAddress: json['customer_address'],
+      customerWhatsapp: json['customer_whatsapp'],
+      paymentMethod: json['payment_method'],
+      notes: json['notes'],
+    );
+  }
 }

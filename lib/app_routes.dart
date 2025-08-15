@@ -1,3 +1,4 @@
+// lib/app_routes.dart
 import 'package:flutter/material.dart';
 import 'package:app_laundry/screens/home_screen.dart';
 import 'package:app_laundry/screens/login_screen.dart';

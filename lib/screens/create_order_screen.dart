@@ -1,4 +1,8 @@
+// lib/screens/create_order_screen.dart
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:app_laundry/screens/login_screen.dart';
 
 class CreateOrderScreen extends StatefulWidget {
   final String serviceTitle;
@@ -10,11 +14,9 @@ class CreateOrderScreen extends StatefulWidget {
 
 class _CreateOrderScreenState extends State<CreateOrderScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController =
-      TextEditingController(text: 'Budi Santoso'); // Contoh data
-  final _addressController =
-      TextEditingController(text: 'Jl. Merdeka No. 17, Jakarta');
-  final _whatsappController = TextEditingController(text: '081234567890');
+  final _nameController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _whatsappController = TextEditingController();
   final _weightController = TextEditingController();
   final _notesController = TextEditingController();
 
@@ -23,11 +25,17 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   String _selectedPaymentMethod = 'DANA';
   bool _isLoading = false;
 
+  // ignore: prefer_typing_uninitialized_variables
+  var _currentUser;
+
   @override
   void initState() {
     super.initState();
     _setPriceBasedOnService();
     _weightController.addListener(_calculatePrice);
+    if (_currentUser != null) {
+      _nameController.text = _currentUser!.name;
+    }
   }
 
   void _setPriceBasedOnService() {
@@ -57,17 +65,54 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     setState(() => _totalPrice = quantity * _pricePerItem);
   }
 
-  Future<void> _fakeSubmitOrder() async {
+  Future<void> _submitOrder() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 2));
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Pesanan berhasil dibuat! (Simulasi)'),
-          backgroundColor: Colors.green));
-      Navigator.of(context).popUntil((route) => route.isFirst);
+    if (_currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Anda harus login terlebih dahulu.')));
+      return;
     }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await http.post(
+        Uri.parse('http://192.168.18.52/laundry_api/orders.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'user_id': _currentUser!.id,
+          'title': widget.serviceTitle,
+          'customer_name': _nameController.text,
+          'customer_address': _addressController.text,
+          'customer_whatsapp': _whatsappController.text,
+          'price': _totalPrice,
+          'weight': double.tryParse(_weightController.text) ?? 0,
+          'notes': _notesController.text,
+          'payment_method': _selectedPaymentMethod,
+        }),
+      );
+
+      final responseData = json.decode(response.body);
+
+      if (response.statusCode == 201) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(responseData['message'])));
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error: ${responseData['message']}')));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Terjadi kesalahan jaringan.')));
+      }
+    }
+
     setState(() => _isLoading = false);
   }
 
@@ -143,7 +188,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.all(16.0),
         child: ElevatedButton(
-          onPressed: _isLoading ? null : _fakeSubmitOrder,
+          onPressed: _isLoading ? null : _submitOrder,
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF2962FF),
             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -176,4 +221,15 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
             fillColor: Colors.white),
         validator: validator,
       );
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _addressController.dispose();
+    _whatsappController.dispose();
+    _weightController.removeListener(_calculatePrice);
+    _weightController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
 }

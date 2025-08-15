@@ -3,22 +3,68 @@ import 'package:flutter/material.dart';
 import 'package:app_laundry/screens/admin_screen.dart';
 import 'package:app_laundry/screens/settings_screen.dart';
 import 'package:app_laundry/screens/view_profile_picture_screen.dart';
+import 'package:app_laundry/models/user_model.dart';
+import 'package:app_laundry/screens/login_screen.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:app_laundry/utils/constants.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
-  // --- DATA PROFIL STATIS (CONTOH) ---
-  // Anda bisa mengubah nilai-nilai ini untuk melihat perbedaannya
-  final String userName = 'Budi Santoso';
-  final String userEmail = 'budi.santoso@example.com';
-  final String profilePictureAsset =
-      'assets/profile_pic.jpg'; // Pastikan ada gambar contoh di folder assets
-  final String userRole =
-      'admin'; // Ganti menjadi 'customer' untuk menyembunyikan tombol admin
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
 
-  // --- FUNGSI SIMULASI UNTUK MENGGANTI FOTO ---
+class _ProfileScreenState extends State<ProfileScreen> {
+  User? _profileUser;
+  bool _isLoading = true;
+
+  // ignore: prefer_typing_uninitialized_variables
+  var _currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchProfile();
+  }
+
+  Future<void> _fetchProfile() async {
+    // Memastikan _currentUser tidak null sebelum memuat data
+    if (_currentUser == null) {
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed(AppRoutes.login);
+      }
+      return;
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('$API_URL/profile.php?user_id=${_currentUser!.id}'),
+      );
+
+      final responseData = json.decode(response.body);
+      if (response.statusCode == 200 && responseData['status'] == 'success') {
+        setState(() {
+          _profileUser = User.fromJson(responseData['user']);
+        });
+      } else {
+        if (mounted) {
+          // Jika gagal memuat data profil, jangan kembali ke login, tapi tampilkan pesan error
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error: ${responseData['message']}')));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Gagal memuat profil.')));
+      }
+    }
+    setState(() => _isLoading = false);
+  }
+
   void _pickAndUploadImage(BuildContext context) {
-    // Menampilkan pesan bahwa ini hanya simulasi
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Simulasi: Membuka galeri untuk memilih foto...'),
@@ -28,10 +74,21 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_profileUser == null) {
+      return const Center(child: Text('Gagal memuat data profil.'));
+    }
+
+    final profilePictureAsset = 'assets/profile_pic.jpg';
+    final userRole = _profileUser!.role;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profil Saya'),
-        automaticallyImplyLeading: false, // Menghilangkan tombol kembali
+        automaticallyImplyLeading: false,
         elevation: 0,
         actions: [
           IconButton(
@@ -50,14 +107,11 @@ class ProfileScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // --- BAGIAN HEADER PROFIL (LENGKAP) ---
             Center(
               child: Stack(
                 children: [
-                  // Widget untuk foto profil
                   GestureDetector(
                     onTap: () {
-                      // Navigasi untuk melihat foto ukuran penuh
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -67,7 +121,7 @@ class ProfileScreen extends StatelessWidget {
                       );
                     },
                     child: Hero(
-                      tag: 'profilePicture', // Tag untuk animasi
+                      tag: 'profilePicture',
                       child: CircleAvatar(
                         radius: 60,
                         backgroundColor: Colors.grey.shade300,
@@ -75,7 +129,6 @@ class ProfileScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // Tombol edit di atas foto profil
                   Positioned(
                     bottom: 0,
                     right: 0,
@@ -90,8 +143,7 @@ class ProfileScreen extends StatelessWidget {
                       child: IconButton(
                         icon: const Icon(Icons.edit,
                             color: Colors.white, size: 20),
-                        onPressed: () => _pickAndUploadImage(
-                            context), // Panggil fungsi ganti foto
+                        onPressed: () => _pickAndUploadImage(context),
                       ),
                     ),
                   ),
@@ -100,16 +152,14 @@ class ProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              userName,
+              _profileUser!.name,
               style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
-              userEmail,
+              _profileUser!.email,
               style: TextStyle(fontSize: 16, color: Colors.grey[600]),
             ),
-
-            // --- BAGIAN TOMBOL PANEL ADMIN ---
             if (userRole == 'admin') ...[
               const SizedBox(height: 30),
               ElevatedButton.icon(
@@ -132,15 +182,12 @@ class ProfileScreen extends StatelessWidget {
                 ),
               ),
             ],
-
             const SizedBox(height: 40),
-
-            // --- BAGIAN TOMBOL LOGOUT ---
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  // Kembali ke halaman login dan hapus semua halaman sebelumnya
+                  _currentUser = null;
                   Navigator.of(context).pushNamedAndRemoveUntil(
                     AppRoutes.login,
                     (route) => false,
